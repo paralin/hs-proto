@@ -244,6 +244,7 @@ message PowerHistoryStart {
 	required int32 index = 2;
 	required int32 source = 3;
 	required int32 target = 4;
+	optional string effect_card_id = 5;
 }
 
 message PowerHistoryEnd {

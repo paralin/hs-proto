@@ -48,6 +48,8 @@ message PurchaseError {
 		E_BP_THIRD_PARTY_RECEIPT_USED = 111;
 		E_BP_PRODUCT_UNIQUENESS_VIOLATED = 112;
 		E_BP_REGION_IS_DOWN = 113;
+		E_BP_GENERIC_FAIL_RETRY_CONTACT_CS_IF_PERSISTS = 115;
+		E_BP_CHALLENGE_ID_FAILED_VERIFICATION = 116;
 	}
 
 	required Error error = 1;
@@ -111,14 +113,6 @@ message ProfileNotice {
 	optional PegasusShared.ProfileNoticeAdventureProgress adventure_progress = 18;
 	optional PegasusShared.ProfileNoticeLevelUp level_up = 19;
 	optional PegasusShared.ProfileNoticeAccountLicense account_license = 20;
-}
-
-message BoosterTally {
-	required bool is_open = 1;
-	required int32 type_id = 2;
-	required bool is_bought = 3;
-	required int32 source_id = 4;
-	required int32 count = 5;
 }
 
 message BoosterCard {
@@ -190,9 +184,10 @@ message HeroXPInfo {
 }
 
 message AssetResponse {
-	required AssetRequestKey requested_key = 1;
+	required PegasusShared.AssetKey requested_key = 1;
 	required PegasusShared.DatabaseResult error_code = 2;
 	optional PegasusShared.ScenarioDbRecord scenario_asset = 100;
+	extensions 100 to 10000;
 }
 
 message DeckSetData {
@@ -500,6 +495,7 @@ message GetPurchaseMethod {
 	required int32 quantity = 2;
 	required int32 currency = 3;
 	required string device_id = 4;
+	optional PegasusShared.Platform platform = 5;
 }
 
 message DoPurchase {
@@ -510,11 +506,14 @@ message DoPurchase {
 }
 
 message CancelPurchase {
-	enum ThirdPartyCancelReason {
+	enum CancelReason {
 		PROVIDER_REPORTED_FAILURE = 1;
 		NOT_RECOGNIZED_BY_PROVIDER = 2;
 		USER_CANCELED_BEFORE_PAYMENT = 3;
 		USER_CANCELING_TO_UNBLOCK = 4;
+		CHALLENGE_TIMEOUT = 5;
+		CHALLENGE_DENIED = 6;
+		CHALLENGE_OTHER_ERROR = 7;
 	}
 	enum PacketID {
 		ID = 274;
@@ -522,8 +521,9 @@ message CancelPurchase {
 	}
 
 	required bool is_auto_cancel = 1;
-	optional ThirdPartyCancelReason third_party_reason = 2 [default = PROVIDER_REPORTED_FAILURE];
+	optional CancelReason reason = 2 [default = PROVIDER_REPORTED_FAILURE];
 	required string device_id = 3;
+	optional string error_message = 4;
 }
 
 message CheckAccountLicenses {
@@ -680,18 +680,14 @@ message SetFavoriteHero {
 	required PegasusShared.FavoriteHero favorite_hero = 1;
 }
 
-message AssetRequestKey {
-	required PegasusShared.AssetType type = 1;
-	optional int32 asset_id = 2;
-}
-
 message GetAssetRequest {
 	enum PacketID {
 		ID = 321;
 		System = 0;
 	}
 
-	repeated AssetRequestKey requests = 1;
+	repeated PegasusShared.AssetKey requests = 1;
+	required int32 client_token = 2;
 }
 
 message DebugCommandRequest {
@@ -1036,14 +1032,6 @@ message BoosterList {
 	repeated PegasusShared.BoosterInfo list = 1;
 }
 
-message BoosterTallyList {
-	enum PacketID {
-		ID = 313;
-	}
-
-	repeated BoosterTally list = 1;
-}
-
 message BoosterContent {
 	enum PacketID {
 		ID = 226;
@@ -1101,6 +1089,8 @@ message PurchaseMethod {
 	optional PurchaseError error = 6;
 	optional int64 transaction_id = 7;
 	optional bool is_zero_cost_license = 8;
+	optional string challenge_id = 9;
+	optional string challenge_url = 10;
 }
 
 message PurchaseResponse {
@@ -1114,8 +1104,6 @@ message PurchaseResponse {
 	optional string third_party_id = 4;
 	optional int32 currency = 5;
 	optional bool is_zero_cost_license = 6;
-	optional string challenge_id = 7;
-	optional string challenge_url = 8;
 }
 
 message BattlePayConfigResponse {
@@ -1371,6 +1359,7 @@ message GetAssetResponse {
 	}
 
 	repeated AssetResponse responses = 1;
+	required int32 client_token = 3;
 }
 
 message DebugCommandResponse {
@@ -1436,6 +1425,7 @@ message ClientRequestResponse {
 	enum ClientRequestResponseFlags {
 		CRRF_SERVICE_NONE = 0;
 		CRRF_SERVICE_UNAVAILABLE = 1;
+		CRRF_SERVICE_UNKNOWN_ERROR = 2;
 	}
 	enum PacketID {
 		ID = 328;
@@ -1458,6 +1448,26 @@ message CheckGameLicensesResponse {
 	}
 
 	required bool success = 1;
+}
+
+message DeckSetTemplateSource {
+	enum PacketID {
+		ID = 332;
+		System = 0;
+	}
+
+	required int64 deck = 1;
+	required int32 template_id = 2;
+}
+
+message RpcHeader {
+	required uint64 type = 1;
+	optional uint64 retry_count = 2 [default = 0];
+}
+
+message RpcMessage {
+	required RpcHeader rpc_header = 1;
+	optional bytes message_body = 2;
 }
 
 enum ProductType {
